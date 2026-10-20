@@ -1,13 +1,14 @@
+use std::collections::HashMap;
+
+use zbus::proxy::CacheProperties;
+use zbus::zbus::OwnedObjectPath;
+
 use crate::error::Error;
 use crate::proxy::item::ItemProxy;
 use crate::proxy::service::ServiceProxy;
-use crate::session::decrypt;
-use crate::session::{AesIv, Session};
+use crate::session::{AesIv, Session, decrypt};
 use crate::ss::SS_DBUS_NAME;
 use crate::util::{LockAction, exec_prompt, format_secret, lock_or_unlock};
-
-use std::collections::HashMap;
-use zbus::{proxy::CacheProperties, zvariant::OwnedObjectPath};
 
 pub struct Item<'a> {
     conn: zbus::Connection,
@@ -25,8 +26,8 @@ impl<'a> Item<'a> {
         item_path: OwnedObjectPath,
     ) -> Result<Item<'a>, Error> {
         let item_proxy = ItemProxy::builder(&conn)
-            .destination(SS_DBUS_NAME)?
-            .path(item_path.clone())?
+            .destination(SS_DBUS_NAME)
+            .path(item_path.clone())
             .cache_properties(CacheProperties::No)
             .build()
             .await?;
@@ -380,7 +381,7 @@ mod test {
 
     #[tokio::test]
     async fn should_create_encrypted_item_from_empty_secret() {
-        //empty string
+        // empty string
         let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
         let collection = ss.get_default_collection().await.unwrap();
         let item = collection

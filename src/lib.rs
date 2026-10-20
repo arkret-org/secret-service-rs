@@ -11,55 +11,59 @@
 //!
 //! ## Basic Usage
 //! ```
-//! use secret_service::SecretService;
-//! use secret_service::EncryptionType;
 //! use std::collections::HashMap;
+//!
+//! use secret_service::{EncryptionType, SecretService};
 //!
 //! #[tokio::main(flavor = "current_thread")]
 //! async fn main() {
-//!    // initialize secret service (dbus connection and encryption session)
-//!    let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
+//!     // initialize secret service (dbus connection and encryption session)
+//!     let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
 //!
-//!    // get default collection
-//!    let collection = ss.get_default_collection().await.unwrap();
+//!     // get default collection
+//!     let collection = ss.get_default_collection().await.unwrap();
 //!
-//!    let mut properties = HashMap::new();
-//!    properties.insert("test", "test_value");
+//!     let mut properties = HashMap::new();
+//!     properties.insert("test", "test_value");
 //!
-//!    //create new item
-//!    collection.create_item(
-//!        "test_label", // label
-//!        properties,
-//!        b"test_secret", //secret
-//!        false, // replace item with same attributes
-//!        "text/plain" // secret content type
-//!    ).await.unwrap();
+//!     // create new item
+//!     collection
+//!         .create_item(
+//!             "test_label", // label
+//!             properties,
+//!             b"test_secret", // secret
+//!             false,          // replace item with same attributes
+//!             "text/plain",   // secret content type
+//!         )
+//!         .await
+//!         .unwrap();
 //!
-//!    // search items by properties
-//!    let search_items = ss.search_items(
-//!        HashMap::from([("test", "test_value")])
-//!    ).await.unwrap();
+//!     // search items by properties
+//!     let search_items = ss
+//!         .search_items(HashMap::from([("test", "test_value")]))
+//!         .await
+//!         .unwrap();
 //!
-//!    // retrieve one item, first by checking the unlocked items
-//!    let item = match search_items.unlocked.first() {
-//!        Some(item) => item,
-//!        None => {
-//!            // if there aren't any, check the locked items and unlock the first one
-//!            let locked_item = search_items
-//!                .locked
-//!                .first()
-//!                .expect("Search didn't return any items!");
-//!            locked_item.unlock().await.unwrap();
-//!            locked_item
-//!        }
-//!    };
+//!     // retrieve one item, first by checking the unlocked items
+//!     let item = match search_items.unlocked.first() {
+//!         Some(item) => item,
+//!         None => {
+//!             // if there aren't any, check the locked items and unlock the first one
+//!             let locked_item = search_items
+//!                 .locked
+//!                 .first()
+//!                 .expect("Search didn't return any items!");
+//!             locked_item.unlock().await.unwrap();
+//!             locked_item
+//!         }
+//!     };
 //!
-//!    // retrieve secret from item
-//!    let secret = item.get_secret().await.unwrap();
-//!    assert_eq!(secret, b"test_secret");
+//!     // retrieve secret from item
+//!     let secret = item.get_secret().await.unwrap();
+//!     assert_eq!(secret, b"test_secret");
 //!
-//!    // delete item (deletes the dbus object, not the struct instance)
-//!    item.delete().await.unwrap()
+//!     // delete item (deletes the dbus object, not the struct instance)
+//!     item.delete().await.unwrap()
 //! }
 //! ```
 //!
@@ -112,14 +116,12 @@
 //!
 //! ### Async
 //!
-//! This crate, following `zbus`, is async by default. If you want a synchronous interface
-//! that blocks, see the [blocking] module instead.
-//
+//! This crate, following `zbus`, is async. Synchronous callers drive complete
+//! operations with `zbus::block_on`.
 // Util currently has interfaces (dbus method namespace) to make it easier to call methods.
 // Util contains function to execute prompts (used in many collection and item methods, like
 // delete)
 
-pub mod blocking;
 mod error;
 mod proxy;
 mod session;
@@ -128,21 +130,20 @@ mod util;
 
 mod collection;
 pub use collection::Collection;
-
 pub use error::Error;
 
 mod item;
-pub use item::Item;
+use std::collections::HashMap;
 
+use futures_util::TryFutureExt;
+pub use item::Item;
 pub use session::EncryptionType;
+use zbus::{ObjectPath, OwnedObjectPath, Variant};
 
 use crate::proxy::service::ServiceProxy;
 use crate::session::Session;
 use crate::ss::SS_COLLECTION_LABEL;
 use crate::util::exec_prompt;
-use futures_util::TryFutureExt;
-use std::collections::HashMap;
-use zbus::zvariant::{ObjectPath, OwnedObjectPath, Value};
 
 /// Secret Service Struct.
 ///
@@ -159,7 +160,7 @@ pub struct SecretService<'a> {
 
 /// Used to indicate locked and unlocked items in the
 /// return value of [SecretService::search_items]
-/// and [blocking::SecretService::search_items].
+
 pub struct SearchItemsResult<T> {
     pub unlocked: Vec<T>,
     pub locked: Vec<T>,
@@ -267,7 +268,7 @@ impl<'a> SecretService<'a> {
         label: &str,
         alias: &str,
     ) -> Result<Collection<'_>, Error> {
-        let mut properties: HashMap<&str, Value> = HashMap::new();
+        let mut properties: HashMap<&str, Variant> = HashMap::new();
         properties.insert(SS_COLLECTION_LABEL, label.into());
 
         let created_collection = self
@@ -370,9 +371,11 @@ impl<'a> SecretService<'a> {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use std::convert::TryFrom;
-    use zbus::zvariant::ObjectPath;
+
+    use zbus::ObjectPath;
+
+    use super::*;
 
     #[tokio::test]
     async fn should_create_secret_service() {

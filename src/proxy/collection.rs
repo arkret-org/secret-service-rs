@@ -1,8 +1,9 @@
 //! A dbus proxy for speaking with secret service's `Collection` Interface.
 
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use zbus::zvariant::{ObjectPath, OwnedObjectPath, Type, Value};
+
+use serde::{Deserialize, Serialize};
+use zbus::{ObjectPath, OwnedObjectPath, Type, Variant};
 
 use super::SecretStruct;
 
@@ -10,7 +11,7 @@ use super::SecretStruct;
 ///
 /// This will derive CollectionProxy
 ///
-/// Note that `Value` in the method signatures corresponds to `VARIANT` dbus type.
+/// Note that `Variant` in the method signatures corresponds to `VARIANT` dbus type.
 #[zbus::proxy(
     interface = "org.freedesktop.Secret.Collection",
     default_service = "org.freedesktop.Secret.Collection"
@@ -23,7 +24,7 @@ pub trait Collection {
 
     fn create_item(
         &self,
-        properties: HashMap<&str, Value<'_>>,
+        properties: HashMap<&str, Variant<'_>>,
         secret: SecretStruct,
         replace: bool,
     ) -> zbus::Result<CreateItemResult>;

@@ -1,30 +1,29 @@
 // key exchange and crypto for session:
 // 1. Before session negotiation (openSession), set private key and public key using DH method.
 // 2. In session negotiation, send public key.
-// 3. As result of session negotiation, get object path for session, which (I think
-//      it means that it uses the same server public key to create an aes key which is used
-//      to decode the encoded secret using the aes seed that's sent with the secret).
+// 3. As result of session negotiation, get object path for session, which (I think it means that it
+//    uses the same server public key to create an aes key which is used to decode the encoded
+//    secret using the aes seed that's sent with the secret).
 // 4. As result of session negotition, get server public key.
 // 5. Use server public key, my private key, to set an aes key using HKDF.
 // 6. Format Secret: aes iv is random seed, in secret struct it's the parameter (Array(Byte))
-// 7. Format Secret: encode the secret value for the value field in secret struct.
-//      This encoding uses the aes_key from the associated Session.
-
-use crate::Error;
-use crate::proxy::service::{OpenSessionResult, ServiceProxy, ServiceProxyBlocking};
-use crate::ss::{ALGORITHM_DH, ALGORITHM_PLAIN};
-
-use hybrid_array::{Array, typenum::U16};
-use num::{
-    FromPrimitive,
-    bigint::BigUint,
-    integer::Integer,
-    traits::{One, Zero},
-};
-use once_cell::sync::Lazy;
-use zbus::zvariant::OwnedObjectPath;
+// 7. Format Secret: encode the secret value for the value field in secret struct. This encoding
+//    uses the aes_key from the associated Session.
 
 use std::ops::{Mul, Rem, Shr};
+
+use hybrid_array::Array;
+use hybrid_array::typenum::U16;
+use num::FromPrimitive;
+use num::bigint::BigUint;
+use num::integer::Integer;
+use num::traits::{One, Zero};
+use once_cell::sync::Lazy;
+use zbus::OwnedObjectPath;
+
+use crate::Error;
+use crate::proxy::service::{OpenSessionResult, ServiceProxy};
+use crate::ss::{ALGORITHM_DH, ALGORITHM_PLAIN};
 
 // for key exchange
 static DH_GENERATOR: Lazy<BigUint> = Lazy::new(|| BigUint::from_u64(0x2).unwrap());
@@ -156,31 +155,6 @@ impl Session {
         })
     }
 
-    pub fn new_blocking(
-        service_proxy: &ServiceProxyBlocking,
-        encryption: EncryptionType,
-    ) -> Result<Self, Error> {
-        match encryption {
-            EncryptionType::Plain => {
-                let session = service_proxy.open_session(ALGORITHM_PLAIN, "".into())?;
-                let session_path = session.result;
-
-                Ok(Session {
-                    object_path: session_path,
-                    aes_key: None,
-                })
-            }
-            EncryptionType::Dh => {
-                let keypair = Keypair::generate();
-
-                let session = service_proxy
-                    .open_session(ALGORITHM_DH, keypair.public.to_bytes_be().into())?;
-
-                Self::encrypted_session(&keypair, session)
-            }
-        }
-    }
-
     pub async fn new(
         service_proxy: &ServiceProxy<'_>,
         encryption: EncryptionType,
@@ -301,21 +275,27 @@ pub fn decrypt(encrypted_data: &[u8], key: &AesKey, iv: &AesIv) -> Result<Vec<u8
 mod test {
     use super::*;
 
-    // There is no async test because this tests that an encryption session can be made, nothing more.
-
     #[test]
     fn should_create_plain_session() {
-        let conn = zbus::blocking::Connection::session().unwrap();
-        let service_proxy = ServiceProxyBlocking::new(&conn).unwrap();
-        let session = Session::new_blocking(&service_proxy, EncryptionType::Plain).unwrap();
-        assert!(session.get_aes_key().is_none());
+        zbus::block_on(async {
+            let conn = zbus::Connection::session().await.unwrap();
+            let service_proxy = ServiceProxy::new(&conn).await.unwrap();
+            let session = Session::new(&service_proxy, EncryptionType::Plain)
+                .await
+                .unwrap();
+            assert!(session.get_aes_key().is_none());
+        });
     }
 
     #[test]
     fn should_create_encrypted_session() {
-        let conn = zbus::blocking::Connection::session().unwrap();
-        let service_proxy = ServiceProxyBlocking::new(&conn).unwrap();
-        let session = Session::new_blocking(&service_proxy, EncryptionType::Dh).unwrap();
-        assert!(session.get_aes_key().is_some());
+        zbus::block_on(async {
+            let conn = zbus::Connection::session().await.unwrap();
+            let service_proxy = ServiceProxy::new(&conn).await.unwrap();
+            let session = Session::new(&service_proxy, EncryptionType::Dh)
+                .await
+                .unwrap();
+            assert!(session.get_aes_key().is_some());
+        });
     }
 }

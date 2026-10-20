@@ -1,16 +1,14 @@
-use crate::Error;
-use crate::Item;
+use std::collections::HashMap;
+
+use zbus::proxy::CacheProperties;
+use zbus::{Dict, ObjectPath, OwnedObjectPath, Variant};
+
 use crate::proxy::collection::CollectionProxy;
 use crate::proxy::service::ServiceProxy;
 use crate::session::Session;
 use crate::ss::{SS_DBUS_NAME, SS_ITEM_ATTRIBUTES, SS_ITEM_LABEL};
 use crate::util::{LockAction, exec_prompt, format_secret, lock_or_unlock};
-
-use std::collections::HashMap;
-use zbus::{
-    proxy::CacheProperties,
-    zvariant::{Dict, ObjectPath, OwnedObjectPath, Value},
-};
+use crate::{Error, Item};
 
 // Collection struct.
 // Should always be created from the SecretService entry point,
@@ -31,8 +29,8 @@ impl<'a> Collection<'a> {
         collection_path: OwnedObjectPath,
     ) -> Result<Collection<'a>, Error> {
         let collection_proxy = CollectionProxy::builder(&conn)
-            .destination(SS_DBUS_NAME)?
-            .path(collection_path.clone())?
+            .destination(SS_DBUS_NAME)
+            .path(collection_path.clone())
             .cache_properties(CacheProperties::No)
             .build()
             .await?;
@@ -147,7 +145,7 @@ impl<'a> Collection<'a> {
     ) -> Result<Item<'_>, Error> {
         let secret_struct = format_secret(self.session, secret, content_type)?;
 
-        let mut properties: HashMap<&str, Value> = HashMap::new();
+        let mut properties: HashMap<&str, Variant> = HashMap::new();
         let attributes: Dict = attributes.into();
 
         properties.insert(SS_ITEM_LABEL, label.into());
@@ -238,7 +236,7 @@ mod test {
                 collection.delete().await.unwrap();
             }
         }
-        //double check after
+        // double check after
         let collections = ss.get_all_collections().await.unwrap();
         assert!(
             collections.len() < count_before,
