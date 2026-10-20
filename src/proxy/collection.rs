@@ -30,7 +30,7 @@ pub trait Collection {
     ) -> zbus::Result<CreateItemResult>;
 
     #[zbus(property)]
-    fn items(&self) -> zbus::fdo::Result<Vec<ObjectPath<'_>>>;
+    fn items(&self) -> zbus::fdo::Result<Vec<OwnedObjectPath>>;
 
     #[zbus(property)]
     fn label(&self) -> zbus::fdo::Result<String>;

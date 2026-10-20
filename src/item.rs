@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
+use zbus::OwnedObjectPath;
 use zbus::proxy::CacheProperties;
-use zbus::zbus::OwnedObjectPath;
 
 use crate::error::Error;
 use crate::proxy::item::ItemProxy;

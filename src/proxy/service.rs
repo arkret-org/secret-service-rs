@@ -42,7 +42,7 @@ pub trait Service {
     fn set_alias(&self, name: &str, collection: ObjectPath<'_>) -> zbus::Result<()>;
 
     #[zbus(property)]
-    fn collections(&self) -> zbus::fdo::Result<Vec<ObjectPath<'_>>>;
+    fn collections(&self) -> zbus::fdo::Result<Vec<OwnedObjectPath>>;
 }
 
 #[derive(Debug, Serialize, Deserialize, Type)]
